@@ -4,6 +4,7 @@ const fs = require("fs")
 const path = require("path")
 const {spawn} = require("child_process")
 const config = require("./config")
+const registration = require("./registration")
 
 const MAX_LOG_LINES = 500
 const MAX_RESTART_DELAY_MS = 60000
@@ -110,6 +111,20 @@ class Supervisor {
 	retrySetup() {
 		if (this.state !== "failed") throw new Error(`can't retry in state ${this.state}`)
 		this.runSetup()
+	}
+
+	/**
+	 * Stops OOYE around the change, since it rewrites registration.yaml itself, and starts it again so it reads the
+	 * new value.
+	 * @param {string} mxid
+	 */
+	async setAdminContact(mxid) {
+		if (this.state === "unconfigured") throw new Error("can't set the admin contact before setup")
+		await this.stopChild()
+		registration.setAdminContact(mxid)
+		this.log(`[bottle] set the bridge admin contact to ${mxid}`)
+		if (this.state === "running") this.runBridge()
+		else if (this.state === "registering") this.runSetup()
 	}
 
 	/** Discards the registration (and any bridge database) so the setup form can be filled in again. */

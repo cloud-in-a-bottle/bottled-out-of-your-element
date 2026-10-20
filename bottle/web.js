@@ -71,6 +71,19 @@ function proxyToOoye(req, res) {
 
 /**
  * @param {import("./supervisor").Supervisor} supervisor
+ * @param {string[]} problems from the admin contact form
+ */
+function statusPage(supervisor, problems) {
+	return pages.status(supervisor, {
+		hsRegistration: registration.homeserverRegistration(),
+		adminContact: registration.adminContact(),
+		botMxid: registration.botMxid(),
+		problems
+	})
+}
+
+/**
+ * @param {import("./supervisor").Supervisor} supervisor
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
  * @param {string} pathname
@@ -86,7 +99,7 @@ async function handleBottle(supervisor, req, res, pathname) {
 		if (supervisor.state === "unconfigured") {
 			return sendHtml(res, 200, pages.setupForm({bridgeOrigin: publicOrigin(req), values: {}, problems: []}))
 		}
-		return sendHtml(res, 200, pages.status(supervisor, registration.homeserverRegistration()))
+		return sendHtml(res, 200, statusPage(supervisor, []))
 	}
 
 	if (req.method === "POST" && pathname === "/_bottle/setup") {
@@ -98,9 +111,11 @@ async function handleBottle(supervisor, req, res, pathname) {
 			serverOrigin: (form.get("server_origin") || "").trim().replace(/\/+$/, ""),
 			discordToken: (form.get("discord_token") || "").trim(),
 			discordClientSecret: (form.get("discord_client_secret") || "").trim(),
-			webPassword: form.get("web_password") || ""
+			webPassword: form.get("web_password") || "",
+			adminContact: (form.get("admin_contact") || "").trim()
 		}
 		const problems = []
+		problems.push(...checks.checkMxid(values.adminContact))
 		if (!values.discordClientSecret) problems.push("The Discord client secret is required.")
 		problems.push(...await checks.checkHomeserver(values.serverOrigin, values.serverName))
 		problems.push(...(values.discordToken ? await checks.checkDiscord(values.discordToken, bridgeOrigin) : ["The Discord bot token is required."]))
@@ -109,6 +124,17 @@ async function handleBottle(supervisor, req, res, pathname) {
 		}
 		registration.writeRegistration({...values, bridgeOrigin})
 		supervisor.configured()
+		return redirect(res, "/_bottle/")
+	}
+
+	if (req.method === "POST" && pathname === "/_bottle/admin-contact") {
+		if (supervisor.state === "unconfigured") return redirect(res, "/_bottle/")
+		const mxid = ((await readForm(req)).get("admin_contact") || "").trim()
+		const problems = checks.checkMxid(mxid)
+		if (problems.length) {
+			return sendHtml(res, 200, statusPage(supervisor, problems))
+		}
+		await supervisor.setAdminContact(mxid)
 		return redirect(res, "/_bottle/")
 	}
 

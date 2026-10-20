@@ -69,6 +69,9 @@ ${problems.length ? `<div class="card problems"><strong>Fix these and submit aga
 <label for="server_origin">Homeserver URL</label>
 <p class="hint">Where the client-server API lives, e.g. <code>https://matrix.example.com</code>.</p>
 <input id="server_origin" name="server_origin" required value="${v("serverOrigin")}" placeholder="https://matrix.example.com">
+<label for="admin_contact">Your Matrix ID</label>
+<p class="hint">Shown as the bridge operator's contact on the bridge's privacy policy page.</p>
+<input id="admin_contact" name="admin_contact" required value="${v("adminContact")}" placeholder="@you:example.com">
 <label for="discord_token">Discord bot token</label>
 <input id="discord_token" name="discord_token" type="password" required autocomplete="off" value="${v("discordToken")}">
 <label for="discord_client_secret">Discord client secret</label>
@@ -84,10 +87,37 @@ To keep strangers from adding the bot by building an invite link themselves, als
 
 /**
  * @param {import("./supervisor").Supervisor} supervisor
- * @param {string | null} hsRegistration
+ * @param {{hsRegistration: string | null, adminContact: string | null, botMxid: string | null, problems: string[]}} opts
+ *   problems are from the admin contact form
  */
-function status(supervisor, hsRegistration) {
+function status(supervisor, {hsRegistration, adminContact, botMxid, problems}) {
 	const state = supervisor.state
+	// Registrations written before the setup form asked for this don't have it.
+	const adminContactForm = adminContact ? "" : `<form method="post" action="/_bottle/admin-contact" class="card${problems.length ? " problems" : ""}">
+<strong>Add your Matrix ID.</strong> The bridge lists it as the operator's contact, and some of its pages (like the one after
+"log in with Matrix") don't work without it. Saving restarts the bridge.
+${problems.length ? `<ul>${problems.map(p => `<li>${escape(p)}</li>`).join("")}</ul>` : ""}
+<input name="admin_contact" required placeholder="@you:example.com" aria-label="Your Matrix ID">
+<button type="submit">Save</button>
+</form>`
+	const linkingSteps = `
+<h2>Linking Discord and Matrix</h2>
+<div class="card">
+<ol>
+<li>On <a href="/">the bridge's home page</a>, add the bot to your Discord server, then log in with Matrix. The bridge sends
+the login link as a DM from <code>${escape(botMxid || "the bridge bot")}</code>, so you need a Matrix client
+signed in as yourself.</li>
+<li><b>Easy mode</b> creates a Matrix space and rooms for you. <b>Self-service</b> links a space and rooms you already have.
+For that, in your Matrix client:
+<ul>
+<li>invite the bot to the space and give it power level 100 (admin) there;</li>
+<li>give it power level 100 in each room you'll link, too (it joins them itself when you link).</li>
+</ul></li>
+<li>Right after linking, check the Matrix privacy level on the server's page. New links start at <b>invite</b>, and the
+bridge applies the level to the space and linked rooms the next time it syncs them, so a public space would become
+invite-only. Pick <b>directory</b> to keep it public. The bridge also sets the space's name and avatar from the Discord server.</li>
+</ol>
+</div>`
 	const reg = hsRegistration ? `<pre id="reg">${escape(hsRegistration)}</pre>
 <button type="button" class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('reg').textContent)">Copy</button>` : ""
 	const synapseSteps = `
@@ -111,11 +141,13 @@ On fly.io, one way is <code>fly ssh console -a &lt;app&gt;</code> and writing th
 		body = `<div class="card"><p class="state">The bridge is running.</p>
 <p>Open <a href="/">the bridge's home page</a> to add the bot to a Discord server, link channels to rooms, and invite yourself.</p>
 <a class="button" href="/">Open the bridge</a></div>
+${linkingSteps}
 <details class="card"><summary>Homeserver registration</summary>${synapseSteps}${reg}</details>`
 	}
 	return layout("Out Of Your Element", `
 <h1>Out Of Your Element</h1>
 <p class="sub">Matrix ↔ Discord bridge · state: <span class="state">${escape(state)}</span></p>
+${adminContactForm}
 ${body}
 <h2>Log</h2>
 <pre id="log">${escape(supervisor.logs.join("\n"))}</pre>

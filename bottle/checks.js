@@ -78,4 +78,14 @@ async function checkDiscord(token, bridgeOrigin) {
 	return problems
 }
 
-module.exports = {checkHomeserver, checkDiscord}
+/**
+ * @param {string} mxid
+ * @returns {string[]} problems, empty if fine
+ */
+function checkMxid(mxid) {
+	// Stricter than Matrix allows: OOYE puts this into its privacy policy page as raw HTML.
+	if (!mxid.match(/^@[a-z0-9._=\/+-]+:[a-z0-9.:-]+$/)) return ["Your Matrix ID should look like @you:example.com"]
+	return []
+}
+
+module.exports = {checkHomeserver, checkDiscord, checkMxid}

@@ -12,6 +12,7 @@ const config = require("./config")
  * @property {string} discordToken
  * @property {string} discordClientSecret
  * @property {string} webPassword
+ * @property {string} adminContact
  */
 
 /**
@@ -32,15 +33,44 @@ function writeRegistration(answers) {
 			server_origin: answers.serverOrigin,
 			discord_token: answers.discordToken,
 			discord_client_secret: answers.discordClientSecret,
-			web_password: answers.webPassword
+			web_password: answers.webPassword,
+			bridge_admin_contact: answers.adminContact
 		}
 	}
+	save(reg)
+}
+
+/** @param {any} reg */
+function save(reg) {
 	fs.writeFileSync(config.registrationPath, JSON.stringify(reg, null, 2) + "\n", {mode: 0o600})
 }
 
 function readRegistration() {
 	if (!fs.existsSync(config.registrationPath)) return null
 	return JSON.parse(fs.readFileSync(config.registrationPath, "utf8"))
+}
+
+/**
+ * The bridge operator's contact, shown on OOYE's privacy policy page. OOYE (as of v3.7) also only serves its `/ok`
+ * page, where the Matrix login form lands, when this is set.
+ */
+function adminContact() {
+	return readRegistration()?.ooye?.bridge_admin_contact || null
+}
+
+function botMxid() {
+	const reg = readRegistration()
+	return reg ? `@${reg.sender_localpart}:${reg.ooye.server_name}` : null
+}
+
+/**
+ * Only call while OOYE isn't running: it rewrites registration.yaml itself at times.
+ * @param {string} mxid
+ */
+function setAdminContact(mxid) {
+	const reg = readRegistration()
+	reg.ooye.bridge_admin_contact = mxid
+	save(reg)
 }
 
 /**
@@ -55,4 +85,4 @@ function homeserverRegistration() {
 	return JSON.stringify(rest, null, 2) + "\n"
 }
 
-module.exports = {writeRegistration, readRegistration, homeserverRegistration}
+module.exports = {writeRegistration, readRegistration, adminContact, setAdminContact, botMxid, homeserverRegistration}

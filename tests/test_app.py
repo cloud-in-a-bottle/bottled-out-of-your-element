@@ -25,10 +25,25 @@ def test_setup_pages_need_login(stack: OpenhostStack) -> None:
 def test_setup_rejects_bad_input(stack: OpenhostStack) -> None:
     response = stack.owner_session.post(
         f"{stack.url}/_bottle/setup",
-        data={"server_name": "example.invalid", "server_origin": "not a url", "discord_token": "", "discord_client_secret": ""},
+        data={
+            "server_name": "example.invalid",
+            "server_origin": "not a url",
+            "admin_contact": "<b>me</b>",
+            "discord_token": "",
+            "discord_client_secret": "",
+        },
     )
     assert response.status_code == 200
     assert "Fix these and submit again" in response.text
+    assert "Your Matrix ID should look like @you:example.com" in response.text
+    assert requests.get(f"{stack.app_url}/health").json()["state"] == "unconfigured"
+
+
+def test_admin_contact_needs_setup_first(stack: OpenhostStack) -> None:
+    response = stack.owner_session.post(
+        f"{stack.url}/_bottle/admin-contact", data={"admin_contact": "@me:example.com"}, allow_redirects=False
+    )
+    assert response.status_code == 303
     assert requests.get(f"{stack.app_url}/health").json()["state"] == "unconfigured"
 
 
