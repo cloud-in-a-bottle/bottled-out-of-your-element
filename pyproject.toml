@@ -1,0 +1,21 @@
+# Python is only used for the integration tests (the app itself is Node: OOYE plus the supervisor in bottle/).
+[project]
+name = "bottled-out-of-your-element-tests"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "requests",
+    # Builds the Dockerfile, runs it under podman per cloudinabottle.toml, and fronts it with the real router.
+    "openhost[test-harness] @ git+https://github.com/imbue-openhost/openhost@main",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "-v"
+testpaths = ["tests"]

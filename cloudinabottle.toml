@@ -1,0 +1,30 @@
+[app]
+name = "out-of-your-element"
+version = "0.1.0"
+description = "Out Of Your Element: a Matrix <-> Discord bridge (appservice) for an existing Matrix homeserver"
+
+[runtime.container]
+image = "Dockerfile"
+port = 8080
+
+[routing]
+health_check = "/health"
+# Everything else (the bridge's web UI, guild settings, /oauth, /api, and the /_bottle setup pages) stays behind the
+# owner login.
+public_paths = [
+    # Homeserver -> bridge appservice transactions and pings. OOYE rejects requests without the hs_token.
+    "/_matrix/app/",
+    # Media proxy: Discord fetches Matrix uploads, stickers and avatars through these URLs, since Matrix media
+    # requires auth.
+    "/download/",
+    # Timestamp links that OOYE puts in bridged messages.
+    "/time/",
+]
+
+[resources]
+memory_mb = 512
+build_memory_mb = 1536
+cpu_cores = 0.5
+
+[data]
+app_data = true
